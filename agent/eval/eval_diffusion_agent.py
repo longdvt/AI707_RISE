@@ -43,9 +43,13 @@ class EvalDiffusionAgent(EvalAgent):
                 (obs_full_trajs, prev_obs_venv["state"][:, -1][None])
             )
 
-        # Collect a set of trajectories from env
+        # ==========================================================
+        #   COLLECT ROLLOUTS
+        # ==========================================================
+        actions_log = []   # save ALL actions for later extraction
+
         for step in range(self.n_steps):
-            if step % 10 == 0:
+            if step % 50 == 0:
                 print(f"Processed step {step} of {self.n_steps}")
 
             # Select action
@@ -61,7 +65,9 @@ class EvalDiffusionAgent(EvalAgent):
                 )  # n_env x horizon x act
             action_venv = output_venv[:, : self.act_steps]
 
-            # Apply multi-step action
+            actions_log.append(action_venv.copy())
+
+            # Env step
             obs_venv, reward_venv, terminated_venv, truncated_venv, info_venv = (
                 self.venv.step(action_venv)
             )
@@ -75,10 +81,12 @@ class EvalDiffusionAgent(EvalAgent):
                     (obs_full_trajs, obs_full_venv.transpose(1, 0, 2))
                 )
 
-            # update for next step
             prev_obs_venv = obs_venv
 
-        # Summarize episode reward --- this needs to be handled differently depending on whether the environment is reset after each iteration. Only count episodes that finish within the iteration.
+        actions_log = np.array(actions_log)           # shape (n_steps, n_envs, act_steps, act_dim)
+        # ==========================================================
+        #   COMPUTE EPISODE BOUNDARIES AND REWARDS
+        # ==========================================================
         episodes_start_end = []
         for env_ind in range(self.n_envs):
             env_steps = np.where(firsts_trajs[:, env_ind] == 1)[0]
@@ -96,9 +104,8 @@ class EvalDiffusionAgent(EvalAgent):
             episode_reward = np.array(
                 [np.sum(reward_traj) for reward_traj in reward_trajs_split]
             )
-            if (
-                self.furniture_sparse_reward
-            ):  # only for furniture tasks, where reward only occurs in one env step
+
+            if self.furniture_sparse_reward:
                 episode_best_reward = episode_reward
             else:
                 episode_best_reward = np.array(
@@ -120,7 +127,48 @@ class EvalDiffusionAgent(EvalAgent):
             success_rate = 0
             log.info("[WARNING] No episode completed within the iteration!")
 
-        # Plot state trajectories (only in D3IL)
+        # ==========================================================
+        #   COLLECT FAILED ROLLOUTS INTO npz file
+        # ==========================================================
+        failed_trajs = []
+        failed_traj_lengths = []
+        total_states = []
+        total_actions = []
+        for idx, (env_ind, start, end) in enumerate(episodes_start_end):
+            ep_reward = episode_reward[idx]
+
+            if self.furniture_sparse_reward:
+                success_flag = (ep_reward >= self.best_reward_threshold_for_success)
+            else:
+                success_flag = (
+                    episode_best_reward[idx] >= self.best_reward_threshold_for_success
+                )
+
+            if success_flag:
+                continue
+
+            # Extract obs, actions
+            obs_seq = obs_full_trajs[start*self.act_steps:(end+1)*self.act_steps, env_ind]
+            act_seq = actions_log[start:end+1, env_ind]
+            act_seq = act_seq.reshape(-1, act_seq.shape[-1])
+            failed_traj_lengths.append(len(act_seq))
+            total_states.append(obs_seq)
+            total_actions.append(act_seq)
+
+        failed_traj_lengths = np.array(failed_traj_lengths)
+        total_states = np.vstack(total_states)
+        total_actions = np.vstack(total_actions)
+
+        # Save to npz if any failed rollouts exist
+        if len(failed_traj_lengths) > 0:
+            save_path = os.path.join(self.logdir, "failed_rollouts.npz")
+            print(f"[Eval] Saving FAILED rollouts to {save_path}")
+            print(f"[Eval] Num failed rollouts: {len(failed_traj_lengths)}")
+            np.savez(save_path, states=total_states, actions=total_actions, traj_lengths=failed_traj_lengths)
+
+        # ==========================================================
+        #   PLOT TRAJECTORIES (unchanged)
+        # ==========================================================
         if self.traj_plotter is not None:
             self.traj_plotter(
                 obs_full_trajs=obs_full_trajs,
