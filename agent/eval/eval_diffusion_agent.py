@@ -60,9 +60,14 @@ class EvalDiffusionAgent(EvalAgent):
                     .to(self.device)
                 }
                 samples = self.model(cond=cond, deterministic=True)
-                output_venv = (
-                    samples.trajectories.cpu().numpy()
-                )  # n_env x horizon x act
+                try:
+                    output_venv = (
+                        samples.trajectories.cpu().numpy()
+                    )  # n_env x horizon x act
+                except AttributeError:
+                    output_venv = (
+                        samples.cpu().numpy()
+                    )  # n_env x horizon x act
             action_venv = output_venv[:, : self.act_steps]
 
             actions_log.append(action_venv.copy())

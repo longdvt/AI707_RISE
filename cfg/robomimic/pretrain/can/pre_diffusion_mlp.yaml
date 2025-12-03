@@ -61,4 +61,5 @@ train_dataset:
   # dataset_path: /home/long/dppo/log/robomimic-eval/can_eval_diffusion_mlp_ta4_td20/2025-12-01_22-26-08_42/failed_rollouts.npz
   horizon_steps: ${horizon_steps}
   cond_steps: ${cond_steps}
+  max_n_episodes: 20
   device: ${device}
