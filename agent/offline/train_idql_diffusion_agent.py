@@ -78,20 +78,60 @@ class TrainIDQLDiffusionAgent(TrainAgent):
 
     def run(self):
         # Start training loop
-        timer = Timer()
         for itr in tqdm(range(self.n_epochs)):
             running_actor_loss = []
             running_critic_q_loss = []
             running_critic_v_loss = []
-            for batch in self.dataloader_train:
-                if self.dataset_train.device == "cpu":
-                    batch = batch_to_device(batch)
+            for batch_failure in tqdm(self.dataloader_failure_train):
+                if self.dataset_failure_train.device == "cpu":
+                    batch_failure = batch_to_device(batch_failure)
+                
                 # Sample batch
-                obs_b = batch.conditions["state"]
-                next_obs_b = batch.conditions["next_state"]
-                actions_b = batch.actions
-                reward_b = batch.rewards
-                terminated_b = batch.dones
+                obs_b = batch_failure.conditions["state"]
+                next_obs_b = batch_failure.conditions["next_state"]
+                actions_b = batch_failure.actions
+                reward_b = batch_failure.rewards
+                terminated_b = batch_failure.dones
+
+                # sample a batch from expert dataset
+                try:
+                    batch_expert = next(self._expert_dataloader_iter)
+                except AttributeError: # First iteration, initialize iterator
+                    self._expert_dataloader_iter = iter(self.dataloader_expert_train)
+                    batch_expert = next(self._expert_dataloader_iter)
+                except StopIteration: # End of epoch for expert data, re-initialize
+                    self._expert_dataloader_iter = iter(self.dataloader_expert_train)
+                    batch_expert = next(self._expert_dataloader_iter)
+                if self.dataset_expert_train.device == "cpu":
+                    batch_expert = batch_to_device(batch_expert)
+                obs_b_expert = batch_expert.conditions["state"]
+                next_obs_b_expert = batch_expert.conditions["next_state"]
+                actions_b_expert = batch_expert.actions
+                reward_b_expert = batch_expert.rewards
+                terminated_b_expert = batch_expert.dones
+
+                # concatenate expert and failure dataset
+                obs_b = torch.cat([obs_b, obs_b_expert], dim=0)
+                next_obs_b = torch.cat([next_obs_b, next_obs_b_expert], dim=0)
+                actions_b = torch.cat([actions_b, actions_b_expert], dim=0)
+                reward_b = torch.cat([reward_b, reward_b_expert], dim=0)
+                terminated_b = torch.cat([terminated_b, terminated_b_expert], dim=0)
+
+                # update actor
+                actor_loss = self.model.loss(
+                    actions_b,
+                    {"state": obs_b},
+                )
+                running_actor_loss.append(actor_loss.item())
+                self.actor_optimizer.zero_grad()
+                if itr >= self.n_critic_warmup_itr:
+                    actor_loss.backward()
+                    if self.max_grad_norm is not None:
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model.actor.parameters(),
+                            self.max_grad_norm,
+                        )
+                    self.actor_optimizer.step()
 
                 # update critic value function
                 critic_loss_v = self.model.loss_critic_v(
@@ -119,21 +159,10 @@ class TrainIDQLDiffusionAgent(TrainAgent):
                 # update target q function
                 self.model.update_target_critic(self.critic_tau)
 
-                # update actor
-                actor_loss = self.model.loss(
-                    actions_b,
-                    {"state": obs_b},
-                )
-                running_actor_loss.append(actor_loss.item())
-                self.actor_optimizer.zero_grad()
-                actor_loss.backward()
-                if itr >= self.n_critic_warmup_itr:
-                    if self.max_grad_norm is not None:
-                        torch.nn.utils.clip_grad_norm_(
-                            self.model.actor.parameters(),
-                            self.max_grad_norm,
-                        )
-                    self.actor_optimizer.step()
+            # update lr scheduler
+            self.actor_lr_scheduler.step()
+            self.critic_q_lr_scheduler.step()
+            self.critic_v_lr_scheduler.step()
 
             # log
             if itr % self.log_freq == 0:
@@ -159,8 +188,3 @@ class TrainIDQLDiffusionAgent(TrainAgent):
                 savepath = os.path.join(self.cfg.logdir, f"checkpoint/state_{itr}.pt")
                 torch.save(data, savepath)
                 log.info(f"Saved model to {savepath}")
-
-            # update lr scheduler
-            self.actor_lr_scheduler.step()
-            self.critic_q_lr_scheduler.step()
-            self.critic_v_lr_scheduler.step()

@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 from model.diffusion.diffusion_rwr import RWRDiffusion
 
 
-def expectile_loss(diff, expectile=0.9):
+def expectile_loss(diff, expectile=0.7):
     weight = torch.where(diff > 0, expectile, (1 - expectile))
     return weight * (diff**2)
 
@@ -126,7 +126,7 @@ class IDQLDiffusion(RWRDiffusion):
         self,
         cond,
         deterministic=False,
-        num_sample=10,
+        num_sample=3,
         critic_hyperparam=0.7,  # sampling weight for implicit policy
         use_expectile_exploration=True,
     ):

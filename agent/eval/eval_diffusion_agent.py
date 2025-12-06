@@ -166,10 +166,10 @@ class EvalDiffusionAgent(EvalAgent):
 
         # Save to npz if any failed rollouts exist
         if len(failed_traj_lengths) > 0:
-            save_path = os.path.join(self.logdir, "failed_rollouts.npz")
+            save_path = os.path.join(self.logdir, "failed_rollouts_0.npz")
             print(f"[Eval] Saving FAILED rollouts to {save_path}")
             print(f"[Eval] Num failed rollouts: {len(failed_traj_lengths)}")
-            np.savez(save_path, states=total_states, actions=total_actions, traj_lengths=failed_traj_lengths)
+            # np.savez(save_path, states=total_states, actions=total_actions, traj_lengths=failed_traj_lengths)
 
         # ==========================================================
         #   PLOT TRAJECTORIES (unchanged)

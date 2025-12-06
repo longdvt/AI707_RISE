@@ -220,15 +220,11 @@ class StitchedSequenceQLearningDataset(StitchedSequenceDataset):
         indices = []
         cur_traj_index = 0
         for traj_length in traj_lengths:
-            max_start = cur_traj_index + traj_length - horizon_steps
-            if not self.dones[cur_traj_index + traj_length - 1]:  # truncation
-                max_start -= 1
-                num_skip += 1
+            max_start = cur_traj_index + traj_length - horizon_steps - 1
             indices += [
                 (i, i - cur_traj_index) for i in range(cur_traj_index, max_start + 1)
             ]
             cur_traj_index += traj_length
-        log.info(f"Number of transitions skipped due to truncation: {num_skip}")
         return indices
 
     def __getitem__(self, idx):
@@ -236,8 +232,8 @@ class StitchedSequenceQLearningDataset(StitchedSequenceDataset):
         end = start + self.horizon_steps
         states = self.states[(start - num_before_start) : (start + 1)]
         actions = self.actions[start:end]
-        rewards = self.rewards[start : (start + 1)]
-        dones = self.dones[start : (start + 1)]
+        rewards = self.rewards[end]
+        dones = self.dones[end]
 
         # Account for action horizon
         if idx < len(self.indices) - self.horizon_steps:

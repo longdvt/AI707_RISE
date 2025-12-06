@@ -70,13 +70,22 @@ class TrainAgent:
 
 
         # Build dataset
-        self.dataset_train = hydra.utils.instantiate(self.cfg.offline_dataset)
-        self.dataloader_train = torch.utils.data.DataLoader(
-            self.dataset_train,
+        self.dataset_expert_train = hydra.utils.instantiate(self.cfg.offline_expert_dataset)
+        self.dataloader_expert_train = torch.utils.data.DataLoader(
+            self.dataset_expert_train,
             batch_size=self.batch_size,
-            num_workers=4 if self.dataset_train.device == "cpu" else 0,
+            num_workers=4 if self.dataset_expert_train.device == "cpu" else 0,
             shuffle=True,
-            pin_memory=True if self.dataset_train.device == "cpu" else False,
+            pin_memory=True if self.dataset_expert_train.device == "cpu" else False,
+        )
+
+        self.dataset_failure_train = hydra.utils.instantiate(self.cfg.offline_failure_dataset)
+        self.dataloader_failure_train = torch.utils.data.DataLoader(
+            self.dataset_failure_train,
+            batch_size=self.batch_size,
+            num_workers=4 if self.dataset_failure_train.device == "cpu" else 0,
+            shuffle=True,
+            pin_memory=True if self.dataset_failure_train.device == "cpu" else False,
         )
 
     def run(self):
