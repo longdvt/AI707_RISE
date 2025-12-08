@@ -151,8 +151,9 @@ class IDQLDiffusion(RWRDiffusion):
             loss = F.mse_loss(x_recon, x_start)
 
         # Enforce Lipschitz constraint
-        reg_loss = model_spectral_penalty_poweriter(self.network, lam=0.001, n_iter=1, squared=True)
-        return loss.mean() + reg_loss
+        # reg_loss = model_spectral_penalty_poweriter(self.network, lam=0.001, n_iter=1, squared=True)
+        # return loss.mean() + reg_loss
+        return loss.mean()
 
     # ---------- Sampling ----------#``
 
@@ -162,7 +163,7 @@ class IDQLDiffusion(RWRDiffusion):
         self,
         cond,
         deterministic=False,
-        num_sample=3,
+        num_sample=1,
         critic_hyperparam=0.7,  # sampling weight for implicit policy
         use_expectile_exploration=True,
     ):

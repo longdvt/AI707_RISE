@@ -286,3 +286,17 @@ class StitchedSequenceQLearningDataset(StitchedSequenceDataset):
                 dones,
             )
         return batch
+
+
+class BC_4_Offline_Dataset(torch.utils.data.Dataset):
+    def __init__(self, dataset_path, device="cuda:0"):
+        self.device = device
+        dataset = np.load(dataset_path)
+        self.states = torch.tensor(dataset["states"], dtype=torch.float32).to(device)
+        self.actions = torch.tensor(dataset["actions"], dtype=torch.float32).to(device)
+
+    def __len__(self):
+        return len(self.states)
+
+    def __getitem__(self, idx):
+        return self.states[idx], self.actions[idx]

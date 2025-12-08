@@ -11,6 +11,7 @@ base_policy_path: /home/long/dppo/log/robomimic-pretrain/can_pre_diffusion_mlp_t
 robomimic_env_cfg_path: cfg/robomimic/env_meta/${env_name}.json
 offline_expert_dataset_path: ${oc.env:DPPO_DATA_DIR}/robomimic/${env_name}/offline_expert.npz
 offline_failure_dataset_path: ${oc.env:DPPO_DATA_DIR}/robomimic/${env_name}/offline_failure.npz
+offline_augmented_dataset_path: ${oc.env:DPPO_DATA_DIR}/robomimic/${env_name}/offline_augmented.npz
 
 seed: 42
 device: cuda:0
@@ -41,20 +42,25 @@ offline_failure_dataset:
   cond_steps: ${cond_steps}
   device: ${device}
 
+offline_augmented_dataset:
+  _target_: agent.dataset.sequence.BC_4_Offline_Dataset
+  dataset_path: ${offline_augmented_dataset_path}
+  device: ${device}
+
 train:
-  n_epochs: 101
+  n_epochs: 201
   n_critic_warmup_itr: 5
   gamma: 0.999
   actor_lr: 1e-4
   actor_weight_decay: 0
   actor_lr_scheduler:
-    first_cycle_steps: 100
+    first_cycle_steps: 200
     warmup_steps: 10
     min_lr: 1e-5
   critic_lr: 1e-3
   critic_weight_decay: 0
   critic_lr_scheduler:
-    first_cycle_steps: 100
+    first_cycle_steps: 200
     warmup_steps: 10
     min_lr: 1e-4
   save_model_freq: 50

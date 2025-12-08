@@ -88,6 +88,16 @@ class TrainAgent:
             pin_memory=True if self.dataset_failure_train.device == "cpu" else False,
         )
 
+        if self.cfg.offline_augmented_dataset is not None:
+            self.dataset_augmented_train = hydra.utils.instantiate(self.cfg.offline_augmented_dataset)
+            self.dataloader_augmented_train = torch.utils.data.DataLoader(
+                self.dataset_augmented_train,
+                batch_size=self.batch_size,
+                num_workers=4 if self.dataset_augmented_train.device == "cpu" else 0,
+                shuffle=True,
+                pin_memory=True if self.dataset_augmented_train.device == "cpu" else False,
+            )
+
     def run(self):
         pass
         

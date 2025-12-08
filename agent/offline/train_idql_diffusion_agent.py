@@ -117,11 +117,33 @@ class TrainIDQLDiffusionAgent(TrainAgent):
                 reward_b = torch.cat([reward_b, reward_b_expert], dim=0)
                 terminated_b = torch.cat([terminated_b, terminated_b_expert], dim=0)
 
-                # update actor
-                actor_loss = self.model.loss(
-                    actions_b,
-                    {"state": obs_b},
-                )
+                
+                if self.cfg.offline_augmented_dataset is not None:
+                    # only sample dataset from offline dataset for calculating actor loss
+                    try:
+                        batch_aug = next(self._aug_dataloader_iter)
+                    except AttributeError: # First iteration, initialize iterator
+                        self._aug_dataloader_iter = iter(self.dataloader_augmented_train)
+                        batch_aug = next(self._aug_dataloader_iter)
+                    except StopIteration: # End of epoch for expert data, re-initialize
+                        self._aug_dataloader_iter = iter(self.dataloader_augmented_train)
+                        batch_aug = next(self._aug_dataloader_iter)
+                    if self.dataset_augmented_train.device == "cpu":
+                        batch_aug = batch_to_device(batch_aug)
+                    obs_b_aug = batch_aug[0].unsqueeze(1)
+                    actions_b_aug = batch_aug[1]
+                    obs_b_aug = torch.cat([obs_b, obs_b_aug], dim=0)
+                    actions_b_aug = torch.cat([actions_b, actions_b_aug], dim=0)
+                    # update actor
+                    actor_loss = self.model.loss(
+                        actions_b_aug,
+                        {"state": obs_b_aug},
+                    )
+                else:
+                    actor_loss = self.model.loss(
+                        actions_b,
+                        {"state": obs_b},
+                    )
                 running_actor_loss.append(actor_loss.item())
                 self.actor_optimizer.zero_grad()
                 if itr >= self.n_critic_warmup_itr:
