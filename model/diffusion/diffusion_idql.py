@@ -9,6 +9,7 @@ import einops
 import copy
 
 import torch.nn.functional as F
+import torch.nn as nn
 
 log = logging.getLogger(__name__)
 
@@ -19,6 +20,38 @@ def expectile_loss(diff, expectile=0.7):
     weight = torch.where(diff > 0, expectile, (1 - expectile))
     return weight * (diff**2)
 
+def power_iteration(W, n_iter=5, eps=1e-12):
+    # W: 2-D tensor (out, in)
+    # returns sigma (scalar)
+    device = W.device
+    # random init but deterministic per call works fine
+    # use a unit vector v
+    v = torch.randn(W.shape[1], device=device)
+    v = v / (v.norm() + eps)
+    for _ in range(n_iter):
+        u = W @ v         # (out,)
+        u_norm = u.norm() + eps
+        u = u / u_norm
+        v = W.T @ u       # (in,)
+        v = v / (v.norm() + eps)
+    sigma = u @ (W @ v)  # Rayleigh quotient, differentiable wrt W, u, v
+    return sigma
+
+def conv_weight_to_matrix(w):
+    return w.reshape(w.shape[0], -1)
+
+def model_spectral_penalty_poweriter(model, lam=1e-3, n_iter=1, squared=True):
+    reg = 0.0
+    for m in model.modules():
+        if isinstance(m, nn.Linear):
+            W = m.weight
+            sigma = power_iteration(W, n_iter=n_iter)
+            reg = reg + (sigma**2 if squared else sigma)
+        elif isinstance(m, nn.Conv2d):
+            W = conv_weight_to_matrix(m.weight)
+            sigma = power_iteration(W, n_iter=n_iter)
+            reg = reg + (sigma**2 if squared else sigma)
+    return lam * reg
 
 class IDQLDiffusion(RWRDiffusion):
 
@@ -116,7 +149,10 @@ class IDQLDiffusion(RWRDiffusion):
             loss = F.mse_loss(x_recon, noise)
         else:
             loss = F.mse_loss(x_recon, x_start)
-        return loss.mean()
+
+        # Enforce Lipschitz constraint
+        reg_loss = model_spectral_penalty_poweriter(self.network, lam=0.001, n_iter=1, squared=True)
+        return loss.mean() + reg_loss
 
     # ---------- Sampling ----------#``
 
