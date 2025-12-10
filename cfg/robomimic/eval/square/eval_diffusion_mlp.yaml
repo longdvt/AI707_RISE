@@ -7,7 +7,7 @@ _target_: agent.eval.eval_diffusion_agent.EvalDiffusionAgent
 
 name: ${env_name}_eval_diffusion_mlp_ta${horizon_steps}_td${denoising_steps}
 logdir: ${oc.env:DPPO_LOG_DIR}/robomimic-eval/${name}/${now:%Y-%m-%d}_${now:%H-%M-%S}_${seed}
-base_policy_path:
+base_policy_path: /home/long/dppo/log/robomimic-pretrain/square_pre_diffusion_mlp_ta4_td20/2025-12-10_09-45-55_42/checkpoint/state_3000.pt
 robomimic_env_cfg_path: cfg/robomimic/env_meta/${env_name}.json
 normalization_path: ${oc.env:DPPO_DATA_DIR}/robomimic/${env_name}/normalization.npz
 
@@ -31,6 +31,7 @@ env:
   best_reward_threshold_for_success: 1
   max_episode_steps: 400
   save_video: False
+  save_full_observations: True
   wrappers:
     robomimic_lowdim:
       normalization_path: ${normalization_path}
@@ -43,9 +44,11 @@ env:
       n_action_steps: ${act_steps}
       max_episode_steps: ${env.max_episode_steps}
       reset_within_step: True
+      save_full_observations: ${env.save_full_observations}
+      pass_full_observations: ${env.save_full_observations}
 
 model:
-  _target_: model.diffusion.diffusion_eval_ft.DiffusionEval
+  _target_: model.diffusion.diffusion_eval.DiffusionEval
   ft_denoising_steps: ${ft_denoising_steps}
   predict_epsilon: True
   denoised_clip_value: 1.0

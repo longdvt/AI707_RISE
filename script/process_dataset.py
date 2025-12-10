@@ -48,8 +48,7 @@ def process_dataset(dataset_path, max_n_episodes, assigned_reward_value=1):
 
 def augment_dataset(
     expert_states, expert_actions, expert_traj_lengths,
-    failed_states, failed_actions, failed_traj_lengths, threshold=0.005, horizon_steps=1
-):
+    failed_states, failed_actions, failed_traj_lengths, threshold=0.005, horizon_steps=1, task="can"):
 
     # ----- Build the union dataset DU = DE ∪ DNE -----
     union_states = np.concatenate([expert_states, failed_states], axis=0)
@@ -93,17 +92,17 @@ def augment_dataset(
     final_states = np.stack([s for (s, a) in D_aug], axis=0)
     final_actions = np.stack([a for (s, a) in D_aug], axis=0)
     print("Augmented dataset: {} episodes, {} steps".format(len(D_aug), final_states.shape[0]))
-    np.savez("/home/long/dppo/data/robomimic/can/offline_augmented.npz", states=final_states, actions=final_actions)
+    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_augmented.npz", states=final_states, actions=final_actions)
 
 if __name__ == "__main__":
-    expert_path = "/home/long/dppo/data/robomimic/can/train.npz"
+    task = "transport"
+    expert_path = f"/home/long/dppo/data/robomimic/{task}/train.npz"
     expert_max_n_episodes = 20
-    # expert_states, expert_actions, expert_rewards, expert_dones, expert_traj_lengths = process_dataset(expert_path, expert_max_n_episodes, 1.0)
     expert_states, expert_actions, expert_rewards, expert_dones, expert_traj_lengths, failed_states, failed_actions, failed_rewards, failed_dones, failed_traj_lengths  = process_dataset(expert_path, expert_max_n_episodes, 1.0)
     print("Expert dataset: {} episodes, {} steps".format(len(expert_traj_lengths), expert_states.shape[0]))
     print("Failed dataset: {} episodes, {} steps".format(len(failed_traj_lengths), failed_states.shape[0]))
-    # np.savez("/home/long/dppo/data/robomimic/can/offline_expert.npz", states=expert_states, actions=expert_actions, rewards=expert_rewards, terminals=expert_dones, traj_lengths=expert_traj_lengths)
-    # np.savez("/home/long/dppo/data/robomimic/can/offline_failed_from_expert.npz", states=failed_states, actions=failed_actions, rewards=failed_rewards, terminals=failed_dones, traj_lengths=failed_traj_lengths)
+    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_expert.npz", states=expert_states, actions=expert_actions, rewards=expert_rewards, terminals=expert_dones, traj_lengths=expert_traj_lengths)
+    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_failed_from_expert.npz", states=failed_states, actions=failed_actions, rewards=failed_rewards, terminals=failed_dones, traj_lengths=failed_traj_lengths)
     
     total_failed_states = []
     total_failed_actions = []
@@ -113,8 +112,8 @@ if __name__ == "__main__":
     for i in range(6):
         if i < 5:
             continue
-        failed_path = "/home/long/dppo/data/robomimic/can/failed_rollouts_{}.npz".format(i)
-        failed_max_n_episodes = 2000
+        failed_path = f"/home/long/dppo/data/robomimic/{task}/failed_rollouts_{i}.npz"
+        failed_max_n_episodes = 20000
         i_failed_states, i_failed_actions, i_failed_rewards, i_failed_dones, i_failed_traj_lengths = process_dataset(failed_path, failed_max_n_episodes, 0.0)    
         total_failed_states.append(i_failed_states)
         total_failed_actions.append(i_failed_actions)
@@ -129,7 +128,16 @@ if __name__ == "__main__":
     total_failed_dones = np.concatenate([failed_dones, *total_failed_dones], axis=0)
     total_failed_traj_lengths = np.concatenate([failed_traj_lengths, *total_failed_traj_lengths], axis=0)
     print("Failed dataset: {} episodes, {} steps".format(len(total_failed_traj_lengths), total_failed_states.shape[0]))
-    # np.savez("/home/long/dppo/data/robomimic/can/offline_failure.npz", states=total_failed_states, actions=total_failed_actions, rewards=total_failed_rewards, terminals=total_failed_dones, traj_lengths=total_failed_traj_lengths)
+    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_failure.npz", states=total_failed_states, actions=total_failed_actions, rewards=total_failed_rewards, terminals=total_failed_dones, traj_lengths=total_failed_traj_lengths)
     
     # Augment expert dataset with failed dataset
-    augment_dataset(expert_states, expert_actions, expert_traj_lengths, total_failed_states, total_failed_actions, total_failed_traj_lengths, horizon_steps=HORIZON_STEPS)
+    augment_dataset(expert_states, expert_actions, expert_traj_lengths, total_failed_states, total_failed_actions, total_failed_traj_lengths, horizon_steps=HORIZON_STEPS, task=task)
+
+    # Merge them into one dataset
+    states = np.concatenate([expert_states, total_failed_states], axis=0)
+    actions = np.concatenate([expert_actions, total_failed_actions], axis=0)
+    rewards = np.concatenate([expert_rewards, total_failed_rewards], axis=0)
+    dones = np.concatenate([expert_dones, total_failed_dones], axis=0)
+    traj_lengths = np.concatenate([expert_traj_lengths, total_failed_traj_lengths], axis=0)
+    print("Offline dataset: {} episodes, {} steps".format(len(traj_lengths), states.shape[0]))
+    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_bcu.npz", states=states, actions=actions, rewards=rewards, terminals=dones, traj_lengths=traj_lengths)

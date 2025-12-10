@@ -8,6 +8,7 @@ _target_: agent.pretrain.train_diffusion_agent.TrainDiffusionAgent
 name: ${env}_pre_diffusion_mlp_ta${horizon_steps}_td${denoising_steps}
 logdir: ${oc.env:DPPO_LOG_DIR}/robomimic-pretrain/${name}/${now:%Y-%m-%d}_${now:%H-%M-%S}_${seed}
 train_dataset_path: ${oc.env:DPPO_DATA_DIR}/robomimic/${env}/train.npz
+# train_dataset_path: ${oc.env:DPPO_DATA_DIR}/robomimic/can/offline_bcu.npz
 
 seed: 42
 device: cuda:0
@@ -25,7 +26,7 @@ wandb:
 
 train:
   n_epochs: 3000
-  batch_size: 256
+  batch_size: 512
   learning_rate: 1e-4
   weight_decay: 1e-6
   lr_scheduler:
@@ -58,7 +59,6 @@ ema:
 train_dataset:
   _target_: agent.dataset.sequence.StitchedSequenceDataset
   dataset_path: ${train_dataset_path}
-  # dataset_path: /home/long/dppo/log/robomimic-eval/can_eval_diffusion_mlp_ta4_td20/2025-12-01_22-26-08_42/failed_rollouts.npz
   horizon_steps: ${horizon_steps}
   cond_steps: ${cond_steps}
   max_n_episodes: 20
