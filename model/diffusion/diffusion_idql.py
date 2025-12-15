@@ -10,6 +10,7 @@ import copy
 
 import torch.nn.functional as F
 import torch.nn as nn
+import torch
 
 log = logging.getLogger(__name__)
 
@@ -20,37 +21,63 @@ def expectile_loss(diff, expectile=0.7):
     weight = torch.where(diff > 0, expectile, (1 - expectile))
     return weight * (diff**2)
 
-def power_iteration(W, n_iter=5, eps=1e-12):
+
+def power_iteration(W, n_iter=20, eps=1e-12):
+    """
+    Calculates the spectral norm (largest singular value) of W using power iteration.
+    """
     # W: 2-D tensor (out, in)
-    # returns sigma (scalar)
     device = W.device
-    # random init but deterministic per call works fine
-    # use a unit vector v
-    v = torch.randn(W.shape[1], device=device)
+    dtype = W.dtype
+    
+    # 1. Initialize random vector
+    v = torch.randn(W.shape[1], device=device, dtype=dtype)
     v = v / (v.norm() + eps)
+    
+    # 2. Power Iteration Loop
     for _ in range(n_iter):
-        u = W @ v         # (out,)
-        u_norm = u.norm() + eps
-        u = u / u_norm
-        v = W.T @ u       # (in,)
+        # Calculate u (left singular vector approximation)
+        u = W @ v
+        u = u / (u.norm() + eps)
+        
+        # Calculate v (right singular vector approximation)
+        v = W.T @ u
         v = v / (v.norm() + eps)
-    sigma = u @ (W @ v)  # Rayleigh quotient, differentiable wrt W, u, v
+        
+    # 3. Stop Gradient Flow through the loop (Optimization)
+    # We treat u and v as constant approximations of the singular vectors.
+    # This prevents O(n_iter) memory consumption during backprop.
+    u = u.detach()
+    v = v.detach()
+    
+    # 4. Calculate Sigma
+    # sigma = u^T W v
+    # This calculation is differentiable w.r.t W
+    sigma = u @ (W @ v) 
     return sigma
 
 def conv_weight_to_matrix(w):
+    # Reshapes (out_channels, in_channels, kh, kw) -> (out_channels, flattened_input)
     return w.reshape(w.shape[0], -1)
 
-def model_spectral_penalty_poweriter(model, lam=1e-3, n_iter=1, squared=True):
+def model_spectral_penalty_poweriter(model, lam=1e-3, n_iter=20, squared=True):
+    """
+    Applies spectral norm regularization to the model.
+    Note: n_iter is increased to 20 to ensure convergence from random init.
+    """
     reg = 0.0
     for m in model.modules():
+        W = None
         if isinstance(m, nn.Linear):
             W = m.weight
-            sigma = power_iteration(W, n_iter=n_iter)
-            reg = reg + (sigma**2 if squared else sigma)
         elif isinstance(m, nn.Conv2d):
             W = conv_weight_to_matrix(m.weight)
+            
+        if W is not None:
+            # We use a higher n_iter because we are initializing randomly every time
             sigma = power_iteration(W, n_iter=n_iter)
             reg = reg + (sigma**2 if squared else sigma)
+            
     return lam * reg
 
 class IDQLDiffusion(RWRDiffusion):
@@ -151,9 +178,9 @@ class IDQLDiffusion(RWRDiffusion):
             loss = F.mse_loss(x_recon, x_start)
 
         # Enforce Lipschitz constraint
-        # reg_loss = model_spectral_penalty_poweriter(self.network, lam=0.001, n_iter=1, squared=True)
-        # return loss.mean() + reg_loss
-        return loss.mean()
+        reg_loss = model_spectral_penalty_poweriter(self.network, lam=1e-1)
+        return loss.mean() + reg_loss
+        # return loss.mean()
 
     # ---------- Sampling ----------#``
 

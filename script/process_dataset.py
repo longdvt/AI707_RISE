@@ -95,49 +95,120 @@ def augment_dataset(
     np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_augmented.npz", states=final_states, actions=final_actions)
 
 if __name__ == "__main__":
-    task = "transport"
-    expert_path = f"/home/long/dppo/data/robomimic/{task}/train.npz"
-    expert_max_n_episodes = 20
-    expert_states, expert_actions, expert_rewards, expert_dones, expert_traj_lengths, failed_states, failed_actions, failed_rewards, failed_dones, failed_traj_lengths  = process_dataset(expert_path, expert_max_n_episodes, 1.0)
-    print("Expert dataset: {} episodes, {} steps".format(len(expert_traj_lengths), expert_states.shape[0]))
-    print("Failed dataset: {} episodes, {} steps".format(len(failed_traj_lengths), failed_states.shape[0]))
-    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_expert.npz", states=expert_states, actions=expert_actions, rewards=expert_rewards, terminals=expert_dones, traj_lengths=expert_traj_lengths)
-    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_failed_from_expert.npz", states=failed_states, actions=failed_actions, rewards=failed_rewards, terminals=failed_dones, traj_lengths=failed_traj_lengths)
+    task = "Transport"
+    # expert_path = f"/home/long/dppo/data/robomimic/{task}/train.npz"
+    # expert_max_n_episodes = 20
+    # expert_states, expert_actions, expert_rewards, expert_dones, expert_traj_lengths, failed_states, failed_actions, failed_rewards, failed_dones, failed_traj_lengths  = process_dataset(expert_path, expert_max_n_episodes, 1.0)
+    # print("Expert dataset: {} episodes, {} steps".format(len(expert_traj_lengths), expert_states.shape[0]))
+    # print("Failed dataset: {} episodes, {} steps".format(len(failed_traj_lengths), failed_states.shape[0]))
+    # # np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_expert.npz", states=expert_states, actions=expert_actions, rewards=expert_rewards, terminals=expert_dones, traj_lengths=expert_traj_lengths)
+    # # np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_failed_from_expert.npz", states=failed_states, actions=failed_actions, rewards=failed_rewards, terminals=failed_dones, traj_lengths=failed_traj_lengths)
     
-    total_failed_states = []
-    total_failed_actions = []
-    total_failed_rewards = []
-    total_failed_dones = []
-    total_failed_traj_lengths = []
-    for i in range(6):
-        if i < 5:
-            continue
-        failed_path = f"/home/long/dppo/data/robomimic/{task}/failed_rollouts_{i}.npz"
-        failed_max_n_episodes = 20000
-        i_failed_states, i_failed_actions, i_failed_rewards, i_failed_dones, i_failed_traj_lengths = process_dataset(failed_path, failed_max_n_episodes, 0.0)    
-        total_failed_states.append(i_failed_states)
-        total_failed_actions.append(i_failed_actions)
-        total_failed_rewards.append(i_failed_rewards)
-        total_failed_dones.append(i_failed_dones)
-        total_failed_traj_lengths.append(i_failed_traj_lengths)
+    # total_failed_states = []
+    # total_failed_actions = []
+    # total_failed_rewards = []
+    # total_failed_dones = []
+    # total_failed_traj_lengths = []
+    # for i in range(6):
+    #     if i < 5:
+    #         continue
+    #     failed_path = f"/home/long/dppo/data/robomimic/{task}/failed_rollouts_{i}.npz"
+    #     failed_max_n_episodes = 20000
+    #     i_failed_states, i_failed_actions, i_failed_rewards, i_failed_dones, i_failed_traj_lengths = process_dataset(failed_path, failed_max_n_episodes, 0.0)    
+    #     total_failed_states.append(i_failed_states)
+    #     total_failed_actions.append(i_failed_actions)
+    #     total_failed_rewards.append(i_failed_rewards)
+    #     total_failed_dones.append(i_failed_dones)
+    #     total_failed_traj_lengths.append(i_failed_traj_lengths)
 
-    # merge failed and expert to create a offline dataset
-    total_failed_states = np.concatenate([failed_states, *total_failed_states], axis=0)
-    total_failed_actions = np.concatenate([failed_actions, *total_failed_actions], axis=0)
-    total_failed_rewards = np.concatenate([failed_rewards, *total_failed_rewards], axis=0)
-    total_failed_dones = np.concatenate([failed_dones, *total_failed_dones], axis=0)
-    total_failed_traj_lengths = np.concatenate([failed_traj_lengths, *total_failed_traj_lengths], axis=0)
-    print("Failed dataset: {} episodes, {} steps".format(len(total_failed_traj_lengths), total_failed_states.shape[0]))
-    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_failure.npz", states=total_failed_states, actions=total_failed_actions, rewards=total_failed_rewards, terminals=total_failed_dones, traj_lengths=total_failed_traj_lengths)
+    # # merge failed and expert to create a offline dataset
+    # total_failed_states = np.concatenate([failed_states, *total_failed_states], axis=0)
+    # total_failed_actions = np.concatenate([failed_actions, *total_failed_actions], axis=0)
+    # total_failed_rewards = np.concatenate([failed_rewards, *total_failed_rewards], axis=0)
+    # total_failed_dones = np.concatenate([failed_dones, *total_failed_dones], axis=0)
+    # total_failed_traj_lengths = np.concatenate([failed_traj_lengths, *total_failed_traj_lengths], axis=0)
+    # print("Failed dataset: {} episodes, {} steps".format(len(total_failed_traj_lengths), total_failed_states.shape[0]))
+    # # np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_failure.npz", states=total_failed_states, actions=total_failed_actions, rewards=total_failed_rewards, terminals=total_failed_dones, traj_lengths=total_failed_traj_lengths)
     
-    # Augment expert dataset with failed dataset
-    augment_dataset(expert_states, expert_actions, expert_traj_lengths, total_failed_states, total_failed_actions, total_failed_traj_lengths, horizon_steps=HORIZON_STEPS, task=task)
+    # # Augment expert dataset with failed dataset
+    # # augment_dataset(expert_states, expert_actions, expert_traj_lengths, total_failed_states, total_failed_actions, total_failed_traj_lengths, horizon_steps=HORIZON_STEPS, task=task)
 
-    # Merge them into one dataset
-    states = np.concatenate([expert_states, total_failed_states], axis=0)
-    actions = np.concatenate([expert_actions, total_failed_actions], axis=0)
-    rewards = np.concatenate([expert_rewards, total_failed_rewards], axis=0)
-    dones = np.concatenate([expert_dones, total_failed_dones], axis=0)
-    traj_lengths = np.concatenate([expert_traj_lengths, total_failed_traj_lengths], axis=0)
-    print("Offline dataset: {} episodes, {} steps".format(len(traj_lengths), states.shape[0]))
-    np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_bcu.npz", states=states, actions=actions, rewards=rewards, terminals=dones, traj_lengths=traj_lengths)
+    # # Merge them into one dataset
+    # states = np.concatenate([expert_states, total_failed_states], axis=0)
+    # actions = np.concatenate([expert_actions, total_failed_actions], axis=0)
+    # rewards = np.concatenate([expert_rewards, total_failed_rewards], axis=0)
+    # dones = np.concatenate([expert_dones, total_failed_dones], axis=0)
+    # traj_lengths = np.concatenate([expert_traj_lengths, total_failed_traj_lengths], axis=0)
+    # print("Offline dataset: {} episodes, {} steps".format(len(traj_lengths), states.shape[0]))
+    # np.savez(f"/home/long/dppo/data/robomimic/{task}/offline_bcu.npz", states=states, actions=actions, rewards=rewards, terminals=dones, traj_lengths=traj_lengths)
+
+
+# Plot Data
+# Algo: [BC, BCU, IDQL, IDQL+Lipschitz, RISE]
+# Lift: [67.5, 62, 84, 79.5, 75.5]
+# Can: [47, 49, 74.5, 51.5, 46.5]
+# Square: [10, 11.5, 26, 15.5, 11.5]
+# Transport: [0.5, 1, 5.5, 1.5, 1.0]
+
+
+
+import matplotlib.pyplot as plt
+
+
+# algos = ['BC', 'BCU', 'IDQL', 'IDQL+Lipschitz', 'RISE']
+# # lift_success_rates = [67.5, 62, 84, 79.5, 75.5]
+# # lift_success_rates = [47, 49, 74.5, 51.5, 46.5]
+# # lift_success_rates = [10, 11.5, 26, 15.5, 11.5]
+# # lift_success_rates = [0.5, 1, 5.5, 1.5, 1.0]
+
+
+# algo_colors = {
+#     'BC': '#1f77b4',  # Matplotlib default blue
+#     'BCU': '#ff7f0e', # Matplotlib default orange
+#     'IDQL': '#2ca02c',# Matplotlib default green
+#     'IDQL+Lipschitz': '#d62728', # Matplotlib default red
+#     'RISE': '#9467bd' # Matplotlib default purple
+# }
+# colors = [algo_colors[algo] for algo in algos]
+
+# plt.figure(figsize=(10, 6))
+# plt.bar(algos, lift_success_rates, color=colors)
+# # plt.xlabel('Algorithm')
+# plt.ylabel('Success Rate (%)')
+# plt.title(f'Task: {task}')
+# plt.ylim(0, 100)
+# plt.grid(axis='y', linestyle='--', alpha=0.7)
+# # plt.show()
+# plt.savefig(f"./{task}_success_rates.png")
+
+# task = "Lift"
+# algos = ['25%', '50%', '75%', '100%']
+# lift_success_rates = [37.5, 47.5, 82, 84.0]
+# can_success_rates = [30.5, 71, 72, 74.5]
+
+# plt.figure(figsize=(10, 6))
+# plt.plot(algos, lift_success_rates, marker='o', linestyle='-', color='blue')
+# plt.plot(algos, can_success_rates, marker='x', linestyle='-', color='green')
+# plt.xlabel('Percentage of Non-expert Data')
+# plt.ylabel('Success Rate (%)')
+# # plt.title(f'Task: {task} - Success Rate vs. Non-expert Data Percentage')
+# plt.ylim(0, 100)
+# plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.legend(['Lift', 'Can'])
+# plt.savefig(f"./{task}_non_expert_data_success_rates.png")
+
+# task = "Lift"
+# algos = ['0', '1e-3', '1e-2', '1e-1']
+# lift_success_rates = [84.0, 79.5, 47, 0.5]
+# can_success_rates = [74.5, 51.5, 12.5, 0.0]
+
+# plt.figure(figsize=(10, 6))
+# plt.plot(algos, lift_success_rates, marker='o', linestyle='-', color='blue')
+# plt.plot(algos, can_success_rates, marker='x', linestyle='-', color='green')
+# plt.xlabel('Spectral norm regularization strength (λ)')
+# plt.ylabel('Success Rate (%)')
+# # plt.title(f'Task: {task} - Success Rate vs. Non-expert Data Percentage')
+# plt.ylim(0, 100)
+# plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.legend(['Lift', 'Can'])
+# plt.savefig(f"./{task}_spectral_norm_success_rates.png")

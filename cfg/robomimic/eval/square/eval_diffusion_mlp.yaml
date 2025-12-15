@@ -7,7 +7,11 @@ _target_: agent.eval.eval_diffusion_agent.EvalDiffusionAgent
 
 name: ${env_name}_eval_diffusion_mlp_ta${horizon_steps}_td${denoising_steps}
 logdir: ${oc.env:DPPO_LOG_DIR}/robomimic-eval/${name}/${now:%Y-%m-%d}_${now:%H-%M-%S}_${seed}
-base_policy_path: /home/long/dppo/log/robomimic-pretrain/square_pre_diffusion_mlp_ta4_td20/2025-12-10_09-45-55_42/checkpoint/state_3000.pt
+# base_policy_path: /home/long/dppo/log/robomimic-pretrain/square_pre_diffusion_mlp_ta4_td20/2025-12-10_09-45-55_42/checkpoint/state_3000.pt
+# base_policy_path: /home/long/dppo/log/robomimic-pretrain/square_pre_diffusion_mlp_ta4_td20/2025-12-11_01-28-38_42/checkpoint/state_2000.pt
+# base_policy_path: /home/long/dppo/log/robomimic-offline/square_idql_diffusion_mlp_ta4_td20/2025-12-11_01-37-48_42/checkpoint/state_200.pt
+# base_policy_path: /home/long/dppo/log/robomimic-offline/square_idql_diffusion_mlp_ta4_td20/2025-12-11_17-33-05_42/checkpoint/state_300.pt
+# base_policy_path: /home/long/dppo/log/robomimic-offline/square_idql_diffusion_mlp_ta4_td20/2025-12-11_17-33-30_42/checkpoint/state_300.pt
 robomimic_env_cfg_path: cfg/robomimic/env_meta/${env_name}.json
 normalization_path: ${oc.env:DPPO_DATA_DIR}/robomimic/${env_name}/normalization.npz
 
@@ -47,15 +51,36 @@ env:
       save_full_observations: ${env.save_full_observations}
       pass_full_observations: ${env.save_full_observations}
 
+# model:
+#   _target_: model.diffusion.diffusion_eval.DiffusionEval
+#   ft_denoising_steps: ${ft_denoising_steps}
+#   predict_epsilon: True
+#   denoised_clip_value: 1.0
+#   randn_clip_value: 3
+#   #
+#   network_path: ${base_policy_path}
+#   network:
+#     _target_: model.diffusion.mlp_diffusion.DiffusionMLP
+#     time_dim: 32
+#     mlp_dims: [1024, 1024, 1024]
+#     cond_mlp_dims: [512, 64]
+#     residual_style: True
+#     cond_dim: ${eval:'${obs_dim} * ${cond_steps}'}
+#     horizon_steps: ${horizon_steps}
+#     action_dim: ${action_dim}
+#   horizon_steps: ${horizon_steps}
+#   obs_dim: ${obs_dim}
+#   action_dim: ${action_dim}
+#   denoising_steps: ${denoising_steps}
+#   device: ${device}
+
 model:
-  _target_: model.diffusion.diffusion_eval.DiffusionEval
-  ft_denoising_steps: ${ft_denoising_steps}
-  predict_epsilon: True
+  _target_: model.diffusion.diffusion_idql.IDQLDiffusion
+  # Sampling HPs
+  min_sampling_denoising_std: 0.1
   denoised_clip_value: 1.0
-  randn_clip_value: 3
-  #
   network_path: ${base_policy_path}
-  network:
+  actor:
     _target_: model.diffusion.mlp_diffusion.DiffusionMLP
     time_dim: 32
     mlp_dims: [1024, 1024, 1024]
@@ -64,6 +89,20 @@ model:
     cond_dim: ${eval:'${obs_dim} * ${cond_steps}'}
     horizon_steps: ${horizon_steps}
     action_dim: ${action_dim}
+  critic_q:
+    _target_: model.common.critic.CriticObsAct
+    action_dim: ${action_dim}
+    action_steps: ${act_steps}
+    cond_dim: ${eval:'${obs_dim} * ${cond_steps}'}
+    mlp_dims: [256, 256, 256]
+    activation_type: Mish
+    residual_style: True
+  critic_v:
+    _target_: model.common.critic.CriticObs
+    cond_dim: ${eval:'${obs_dim} * ${cond_steps}'}
+    mlp_dims: [256, 256, 256]
+    activation_type: Mish
+    residual_style: True
   horizon_steps: ${horizon_steps}
   obs_dim: ${obs_dim}
   action_dim: ${action_dim}

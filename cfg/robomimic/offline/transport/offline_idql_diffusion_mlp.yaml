@@ -76,8 +76,8 @@ model:
   network_path: ${base_policy_path}
   actor:
     _target_: model.diffusion.mlp_diffusion.DiffusionMLP
-    time_dim: 16
-    mlp_dims: [512, 512, 512]
+    time_dim: 32
+    mlp_dims: [1024, 1024, 1024]
     residual_style: True
     cond_dim: ${eval:'${obs_dim} * ${cond_steps}'}
     horizon_steps: ${horizon_steps}
